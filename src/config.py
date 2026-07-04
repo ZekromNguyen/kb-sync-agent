@@ -1,0 +1,118 @@
+"""Centralised configuration, loaded from environment variables and `.env`.
+
+Nothing in this module touches the network or the Google API. It only reads
+environment so the rest of the pipeline can depend on a single typed object.
+"""
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+
+from dotenv import load_dotenv
+
+
+def _as_bool(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _as_int(value: str | None, default: int) -> int:
+    try:
+        return int(value) if value is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_ids(value: str | None) -> tuple[int, ...]:
+    """Parse a comma-separated list of article IDs (e.g. "360051014713,123")."""
+    if not value:
+        return ()
+    ids = []
+    for token in value.split(","):
+        token = token.strip()
+        if token:
+            try:
+                ids.append(int(token))
+            except ValueError:
+                continue
+    return tuple(ids)
+
+
+@dataclass
+class Config:
+    secrets_base_dir: str = "data"
+
+    google_api_key: str | None = None
+    store_display_name: str = "optibot-support-kb"
+    # Persistent resource name (fileSearchStores/...). Optional on first run --
+    # once a store is created, the job persists it in data/state/store.json.
+    store_name: str | None = None
+    gemini_model: str = "gemini-2.5-flash"
+
+    support_base_url: str = "https://support.optisigns.com"
+    article_limit: int = 30
+    upload_enabled: bool = True
+    log_level: str = "INFO"
+
+    # Local chunking rule used for the *estimated* chunk count logged per run,
+    # AND the provider chunking config sent on upload. Google AI File Search
+    # enforces max_tokens_per_chunk in [0, 512] and overlap < chunk size, so we
+    # pin to 512 (the largest allowed) with a 64-token overlap (≈12.5%) for
+    # context preservation across chunk boundaries.
+    max_tokens_per_chunk: int = 512
+    max_overlap_tokens: int = 64
+
+    # Comma-separated OptiSigns article IDs pinned into the corpus ahead of the
+    # recency-ordered listing. The Zendesk list endpoint returns articles
+    # newest-first, so without pinning a small ARTICLE_LIMIT would miss the
+    # docs behind the canonical sample question ("How do I add a YouTube
+    # video?"). These are fetched via the single-article detail endpoint.
+    # Default includes the dedicated YouTube app article so the sample question
+    # is answerable out of the box; set SAMPLE_ARTICLE_IDS= (empty) to disable.
+    sample_article_ids: tuple[int, ...] = (360051014713,)
+
+    @property
+    def can_upload(self) -> bool:
+        """True only when the job may actually call the Google API."""
+        return self.upload_enabled and bool(self.google_api_key)
+
+
+def load_config(env_file: str = ".env") -> Config:
+    # load_dotenv silently no-ops if the file is missing (e.g. inside Docker when
+    # env is injected directly), so this is safe to call unconditionally.
+    load_dotenv(env_file)
+    return Config(
+        google_api_key=(os.getenv("GOOGLE_API_KEY") or "").strip() or None,
+        store_display_name=os.getenv(
+            "GOOGLE_FILE_SEARCH_STORE_DISPLAY_NAME", "optibot-support-kb"
+        )
+        or "optibot-support-kb",
+        store_name=(os.getenv("GOOGLE_FILE_SEARCH_STORE_NAME") or "").strip() or None,
+        gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash") or "gemini-2.5-flash",
+        support_base_url=(os.getenv("SUPPORT_BASE_URL", "https://support.optisigns.com") or "").rstrip("/"),
+        article_limit=_as_int(os.getenv("ARTICLE_LIMIT"), 30),
+        upload_enabled=_as_bool(os.getenv("UPLOAD_ENABLED"), True),
+        log_level=(os.getenv("LOG_LEVEL", "INFO") or "INFO").upper(),
+        max_tokens_per_chunk=_as_int(os.getenv("MAX_TOKENS_PER_CHUNK"), 512),
+        max_overlap_tokens=_as_int(os.getenv("MAX_OVERLAP_TOKENS"), 64),
+        sample_article_ids=_parse_sample_ids(os.getenv("SAMPLE_ARTICLE_IDS")),
+    )
+
+
+def _parse_sample_ids(value: str | None) -> tuple[int, ...]:
+    """SAMPLE_ARTICLE_IDS unset -> default YouTube article; empty -> none."""
+    if value is None:
+        return (360051014713,)
+    return _parse_ids(value)
+
+
+# Required assistant system instruction. Used verbatim by the job's query helper
+# and (if a manual AI Studio assistant is configured) by the screenshot step.
+OPTIBOT_SYSTEM_PROMPT = (
+    "You are OptiBot, the customer-support bot for OptiSigns.com.\n"
+    "• Tone: helpful, factual, concise.\n"
+    "• Only answer using the uploaded docs.\n"
+    "• Max 5 bullet points; else link to the doc.\n"
+    '• Cite up to 3 "Article URL:" lines per reply.'
+)

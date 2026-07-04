@@ -1,0 +1,11 @@
+# Google AI File Search ingestion deps.
+google-genai>=1.10,<3
+
+# Scraping + HTML -> Markdown cleaning.
+requests>=2.31
+beautifulsoup4>=4.12
+markdownify>=0.13
+tenacity>=8.2
+
+# .env loading.
+python-dotenv>=1.0
