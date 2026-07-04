@@ -91,8 +91,11 @@ def upsert_entry(
         "status": status,
         "last_seen_at": _now(),
     }
-    # Carry over upload bookkeeping unless the content actually changed.
-    if status == "skipped":
+    # Carry over upload bookkeeping so the uploader can delete a superseded
+    # document on `updated` (Google has no in-place replace) and so `skipped`
+    # runs keep the doc reference + status intact. For a real `added` there
+    # is no prior entry, so nothing is carried over.
+    if status in ("updated", "skipped"):
         for key in ("upload_status", "document_name", "operation_name", "uploaded_at"):
             if key in existing:
                 entry[key] = existing[key]
@@ -109,10 +112,23 @@ def mark_uploaded(
     entry = manifest.get(article_id)
     if not entry:
         return
+    # If a previous version of this article was already uploaded, keep its
+    # document name so the uploader can delete the stale document after a
+    # successful replace-upload (prevents orphaned, still-retrievable chunks).
+    if entry.get("document_name") and entry["document_name"] != document_name:
+        entry["previous_document_name"] = entry["document_name"]
     entry["upload_status"] = "uploaded"
     entry["operation_name"] = operation_name
     entry["document_name"] = document_name
     entry["uploaded_at"] = _now()
+
+
+def mark_document_replaced(manifest: dict[int, dict], article_id: int) -> None:
+    """Clear the stale-document pointer after the old doc is deleted."""
+    entry = manifest.get(article_id)
+    if not entry:
+        return
+    entry.pop("previous_document_name", None)
 
 
 def mark_upload_failed(manifest: dict[int, dict], article_id: int, error: str) -> None:

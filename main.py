@@ -6,9 +6,14 @@ changed files to Google AI File Search -> write logs/last_run.json -> exit.
 Safe mode: without GOOGLE_API_KEY (or with UPLOAD_ENABLED=false) the job still
 scrapes, cleans, classifies, and writes Markdown + manifest + logs; it just
 skips the upload step. This is the no-secret smoke-test path.
+
+CLI flags (override env; useful for reviewer demos without editing .env):
+    --limit N        scrape at most N articles (default: env ARTICLE_LIMIT / 30)
+    --safe-mode      force uploads off (equivalent to UPLOAD_ENABLED=false)
 """
 from __future__ import annotations
 
+import argparse
 import os
 import traceback
 
@@ -22,8 +27,27 @@ from src import uploader_google
 MD_DIR = os.path.join("data", "markdown")
 
 
-def run() -> dict:
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        prog="main.py",
+        description="Daily KB ingestion: scrape -> clean -> delta -> upload deltas.",
+    )
+    p.add_argument("--limit", type=int, default=None,
+                   help="scrape at most N articles (overrides env ARTICLE_LIMIT)")
+    p.add_argument("--safe-mode", action="store_true",
+                   help="force uploads off; run scrape/clean/delta only (no Google calls)")
+    return p.parse_args(argv)
+
+
+def run(argv: list[str] | None = None) -> dict:
+    args = _parse_args(argv)
     cfg = load_config()
+    # CLI overrides take precedence over env, so reviewers can demo without
+    # editing .env or shell vars.
+    if args.limit is not None:
+        cfg.article_limit = args.limit
+    if args.safe_mode:
+        cfg.upload_enabled = False
     log = setup_logging(cfg.log_level)
     log.info("starting run upload_enabled=%s article_limit=%s can_upload=%s",
              cfg.upload_enabled, cfg.article_limit, cfg.can_upload)
@@ -181,6 +205,8 @@ def run() -> dict:
         "estimated_chunk_count": estimated_total_chunks,
         "failures": failures,
         "upload_enabled": cfg.can_upload,
+        "safe_mode": bool(args.safe_mode),
+        "limit": cfg.article_limit,
     }
     path = write_last_run("logs", run_summary)
     log.info("run complete -> %s", path)

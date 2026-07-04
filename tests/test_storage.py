@@ -66,13 +66,39 @@ def test_upsert_preserves_upload_info_on_skip():
     )
     assert m[1]["upload_status"] == "uploaded"
     assert m[1]["document_name"] == "doc/x"
-    # A delta change (added/updated) wipes upload bookkeeping, since the file
-    # must be re-uploaded.
+    # An `added` entry has no prior info to carry over.
+    m2 = {}
+    storage.upsert_entry(
+        m2, article_id=2, slug="s", source_url="u", updated_at="2026",
+        content_hash="h", local_path="p", status="added",
+    )
+    assert "upload_status" not in m2[2]
+
+
+def test_upsert_preserves_doc_name_on_updated_for_replace():
+    """An `updated` article must keep its old document_name so the uploader can
+    delete the now-superseded document (Google has no in-place replace)."""
+    m = {1: {"document_name": "doc/old", "upload_status": "uploaded", "uploaded_at": "T"}}
     storage.upsert_entry(
         m, article_id=1, slug="s", source_url="u", updated_at="2026",
         content_hash="h2", local_path="p", status="updated",
     )
-    assert "upload_status" not in m[1]
+    assert m[1]["document_name"] == "doc/old"  # carried over for the delete path
+    # upload_status is carried over too; the uploader rewrites it after upload.
+    assert m[1]["upload_status"] == "uploaded"
+
+
+def test_mark_uploaded_tracks_stale_document_for_replace():
+    """A second upload with a new doc name should record the old one as stale,
+    so the uploader can delete it (Google has no in-place replace)."""
+    m = {1: {"upload_status": "uploaded", "document_name": "doc/old"}}
+    storage.mark_uploaded(m, 1, operation_name="op/2", document_name="doc/new")
+    assert m[1]["document_name"] == "doc/new"
+    assert m[1]["previous_document_name"] == "doc/old"
+    # clearing the stale pointer after the delete
+    storage.mark_document_replaced(m, 1)
+    assert "previous_document_name" not in m[1]
+    assert m[1]["document_name"] == "doc/new"  # current doc unaffected
 
 
 def test_load_manifest_missing_file(tmp_path):

@@ -141,7 +141,12 @@ def upload_changed(
     max_overlap_tokens: int,
     logger,
 ) -> UploadOutcome:
-    """Upload every article in `article_ids` (the added+updated set)."""
+    """Upload every article in `article_ids` (the added+updated set).
+
+    For `updated` articles a new document is uploaded first; on success the
+    previous document is deleted so stale chunks are no longer retrievable
+    (Google File Search has no in-place replace). Added articles just upload.
+    """
     outcome = UploadOutcome(uploaded=0, failed=0, failures=[])
     for aid in article_ids:
         entry = manifest.get(aid)
@@ -167,6 +172,24 @@ def upload_changed(
                 operation_name=res["operation_name"],
                 document_name=res["document_name"],
             )
+            # Replace path: delete the now-superseded document so its stale
+            # chunks can't be retrieved alongside the fresh upload. Google
+            # File Search has no in-place replace, and a non-empty document
+            # (one with chunks) only deletes with force=true.
+            stale = entry.get("previous_document_name")
+            if stale:
+                try:
+                    client.file_search_stores.documents.delete(
+                        name=stale,
+                        config=gtypes.DeleteDocumentConfig(force=True),
+                    )
+                    storage.mark_document_replaced(manifest, aid)
+                    logger.info("replaced aid=%s deleted stale doc=%s", aid, stale)
+                except Exception as exc:  # noqa: BLE001 - don't fail the upload
+                    logger.warning(
+                        "upload ok but stale-doc delete failed aid=%s doc=%s err=%s",
+                        aid, stale, exc,
+                    )
             outcome.uploaded += 1
             logger.info("uploaded aid=%s slug=%s doc=%s", aid, entry["slug"], res["document_name"])
         except Exception as exc:  # noqa: BLE001 - log + continue per article
