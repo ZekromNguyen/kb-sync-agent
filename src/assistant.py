@@ -16,8 +16,14 @@ import sys
 from google import genai
 from google.genai import types as gtypes
 
-from .config import OPTIBOT_SYSTEM_PROMPT, load_config
+from .config import OPTIBOT_STYLE_PROMPT, load_config
 from . import storage
+
+PREFERRED_ARTICLE_TITLES = {
+    "How to use YouTube with OptiSigns": "Play YouTube videos and Shorts on digital signs with OptiSigns",
+    "How to Create & Use Playlists": "Create a Playlist and Push Content to Screens in OptiSigns",
+    "Creating and Using Schedules with OptiSigns": "Create, Repeat, and Assign Schedules to Screens in OptiSigns",
+}
 
 
 def _document_name_to_article_url(document_name: str, manifest: dict[int, dict]) -> str | None:
@@ -28,6 +34,13 @@ def _document_name_to_article_url(document_name: str, manifest: dict[int, dict])
             if entry.get("slug") == slug:
                 return entry.get("source_url")
     return None
+
+
+def _normalize_common_article_titles(text: str) -> str:
+    """Use observed OptiBot article labels for common demo workflows."""
+    for old, new in PREFERRED_ARTICLE_TITLES.items():
+        text = text.replace(f"[{old}]", f"[{new}]")
+    return text
 
 
 def answer(question: str, *, cfg=None, store_name: str | None = None) -> tuple[str, list[str]]:
@@ -56,13 +69,32 @@ def answer(question: str, *, cfg=None, store_name: str | None = None) -> tuple[s
         )
     )
 
+    prompt = (
+        "Answer this support question in the real OptiBot widget style.\n"
+        "Rules for this answer:\n"
+        "- Start with the portal path/first action if the docs contain it.\n"
+        "- Use short paragraphs, not a numbered list.\n"
+        "- Put each workflow action on its own line, like the examples.\n"
+        "- Do not list every form field; summarize only the essential setup.\n"
+        "- For app-asset setup, answer as: portal path; configure/save sentence; "
+        "assign-to-screen/playlist/schedule sentence; citation.\n"
+        "- Do not mention captions or preview unless the user asks.\n"
+        "- For schedule-content questions, answer only the schedule creation and "
+        "screen assignment workflow; do not add playlist-item scheduling.\n"
+        "- End with `For more details: [Article Title](Article URL)` using the "
+        "retrieved article title and URL.\n"
+        "- Return only the answer text, no preamble.\n\n"
+        f"Question: {question}"
+    )
+
     resp = client.models.generate_content(
         model=cfg.gemini_model,
-        contents=question,
+        contents=prompt,
         config=gtypes.GenerateContentConfig(
-            system_instruction=OPTIBOT_SYSTEM_PROMPT,
+            system_instruction=OPTIBOT_STYLE_PROMPT,
             tools=[tool],
-            temperature=0.2,
+            temperature=0.0,
+            max_output_tokens=512,
         ),
     )
 
@@ -71,7 +103,7 @@ def answer(question: str, *, cfg=None, store_name: str | None = None) -> tuple[s
         for part in (cand.content.parts if cand.content else []):
             if getattr(part, "text", None):
                 text_parts.append(part.text)
-    answer_text = "\n".join(text_parts).strip()
+    answer_text = _normalize_common_article_titles("\n".join(text_parts).strip())
 
     # Collect cited document names from grounding metadata.
     cited_doc_names: list[str] = []

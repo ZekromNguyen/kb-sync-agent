@@ -1,0 +1,9 @@
+# Optional local Streamlit UI — NOT in the production Docker image.
+#
+# Includes production deps because ui/app.py imports the real backend modules
+# (config, storage, assistant, main) instead of duplicating logic. Nothing here
+# is installed by the production Docker image, so the daily job stays lean.
+-r requirements.txt
+
+# streamlit pulls pandas/numpy/pyarrow transitively.
+streamlit>=1.30

@@ -1,0 +1,33 @@
+# Optional Render Cron blueprint.
+#
+# Primary free deployment for this project is GitHub Actions because the
+# workflow can cache data/state between daily runs. Render Cron Jobs currently
+# cannot attach a persistent disk, so this blueprint is best used as a paid
+# PaaS demo unless you add external state storage.
+services:
+  - type: cron
+    name: kb-mini-agent-daily
+    runtime: docker
+    plan: starter
+    schedule: "0 2 * * *"
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: GOOGLE_FILE_SEARCH_STORE_DISPLAY_NAME
+        value: optibot-support-kb
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: SUPPORT_BASE_URL
+        value: https://support.optisigns.com
+      - key: ARTICLE_LIMIT
+        value: "30"
+      - key: UPLOAD_ENABLED
+        value: "true"
+      - key: MAX_TOKENS_PER_CHUNK
+        value: "512"
+      - key: MAX_OVERLAP_TOKENS
+        value: "64"
+      - key: LOG_LEVEL
+        value: INFO
