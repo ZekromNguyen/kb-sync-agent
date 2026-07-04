@@ -1,6 +1,6 @@
-# Agent Guide: OptiBot Mini Clone
+# Agent Guide: Support KB Mini Clone
 
-This repo is for the OptiBot Mini-Clone take-home test. The goal is to ship a small, reviewable backend job in about 10 focused hours: scrape OptiSigns support articles, normalize them to Markdown, upload changed documents to Google AI File Search via API, and run the whole pipeline as a daily scheduled job.
+This repo is for the Support KB Mini-Clone take-home test. The goal is to ship a small, reviewable backend job in about 10 focused hours: scrape a vendor's support articles, normalize them to Markdown, upload changed documents to Google AI File Search via API, and run the whole pipeline as a daily scheduled job.
 
 ## Non-Negotiables
 
@@ -8,8 +8,8 @@ This repo is for the OptiBot Mini-Clone take-home test. The goal is to ship a sm
 - Do not hard-code secrets. Read the Google API key from `.env` as `GOOGLE_API_KEY`.
 - Use Python 3.11.
 - Use Google AI / Gemini as the AI provider.
-- Preferred knowledge base display name: `optibot-support-kb`.
-- Preferred assistant/chat configuration name: `OptiBot Mini Clone`.
+- Preferred knowledge base display name: `optibot-support-kb` (an existing store name carried over from prior runs; do not rename without reason).
+- Preferred assistant/chat configuration name: `Support KB Mini Clone`.
 - Daily schedule: once per day at `02:00 UTC`.
 - API upload is mandatory. Do not use UI drag-and-drop for ingestion.
 - Docker must run the job once, then exit with code 0.

@@ -1,0 +1,79 @@
+# Daily ingestion job: scrape -> clean -> delta -> upload deltas to Google AI
+# File Search. Scheduled once per day at 02:00 UTC; also runnable on demand.
+#
+# Required repo Actions secret: GOOGLE_API_KEY. Optionally set
+# GOOGLE_FILE_SEARCH_STORE_NAME to pin a specific File Search store.
+name: Daily KB Ingest
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 02:00 UTC, every day
+  workflow_dispatch:       # manual "Run workflow" button
+
+permissions:
+  contents: read
+
+# Queue overlapping runs (don't cancel a mid-upload run) so the cached state
+# never gets corrupted by two writers at once.
+concurrency:
+  group: daily-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install --upgrade -r requirements.txt
+
+      # Delta detection (articles_manifest.json) and the persisted File Search
+      # store name (store.json) live under data/state. Cache data/state + logs
+      # so each scheduled run sees the previous run's state instead of starting
+      # from scratch (a fresh state would re-classify every article as `added`
+      # and re-upload all docs every run). A per-run key always saves a new
+      # entry; restore-keys prefix-matches the most recent prior entry.
+      - name: Restore job state (manifest + store + logs)
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/state
+            logs
+          key: kb-ingest-state-${{ github.run_id }}
+          restore-keys: |
+            kb-ingest-state-
+
+      - name: Run ingestion job
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_FILE_SEARCH_STORE_DISPLAY_NAME: optibot-support-kb
+          GEMINI_MODEL: gemini-2.5-flash
+          SUPPORT_BASE_URL: https://support.optisigns.com
+          ARTICLE_LIMIT: "30"
+          UPLOAD_ENABLED: "true"
+          MAX_TOKENS_PER_CHUNK: "512"
+          MAX_OVERLAP_TOKENS: "64"
+          LOG_LEVEL: INFO
+        run: python main.py
+
+      # Attach the structured run summary + manifest to every run (even on
+      # failure) so the last-run artefact is inspectable from the Actions UI.
+      - name: Upload last-run + manifest artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: last-run
+          path: |
+            logs/last_run.json
+            data/state/articles_manifest.json
+            data/state/store.json
+          if-no-files-found: ignore

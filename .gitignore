@@ -1,0 +1,23 @@
+# Environment + secrets
+.env
+.env.docker
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+venv/
+.venv/
+# Pytest temp dirs created when the default system temp is not writable.
+.pytest_tmp/
+
+# Job outputs (regenerated each run — do not commit)
+data/markdown/
+data/state/
+logs/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
