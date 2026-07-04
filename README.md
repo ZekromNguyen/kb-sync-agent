@@ -31,7 +31,33 @@ Safe mode (no secrets) — still scrapes, cleans, classifies, writes Markdown +
 manifest + logs, skips upload:
 
 ```bash
-UPLOAD_ENABLED=false python main.py
+python main.py --safe-mode             # CLI flag, no env edits
+python main.py --safe-mode --limit 5    # demo with just 5 articles
+UPLOAD_ENABLED=false python main.py     # same thing via env
+```
+
+### Smoke check
+
+A no-secret one-shot that compiles, runs unit tests, does a 3-article safe-mode
+run, and verifies every generated Markdown file has front matter + an
+`Article URL:` citation line:
+
+```bash
+bash scripts/smoke.sh        # macOS / Linux / Git Bash
+pwsh scripts/smoke.ps1       # Windows PowerShell
+```
+
+### Evaluation against the live store
+
+5 hand-picked canonical questions (see `eval/questions.yaml`), scored on
+groundedness (cites an expected article) + topic coverage. Calls the Google
+API — run after `python main.py` has populated the store:
+
+```bash
+pip install -r requirements-dev.txt   # adds pyyaml for the eval harness
+python -m src.evaluate                # PASS/FAIL summary
+python -m src.evaluate --raw          # also print each answer
+python -m src.evaluate --limit 2
 ```
 
 Artifacts (git-ignored, regenerated per run):
@@ -94,6 +120,13 @@ python -m compileall main.py src
   succeeded (failed / never tried) is retried, so a transient API error doesn't
   permanently orphan a doc. A successfully uploaded `skipped` article is not
   re-uploaded — the strict delta contract holds.
+- **Updated-article replacement.** Google File Search has no in-place document
+  replace. On an `updated` article the job uploads a fresh document first, then
+  deletes the superseded one (`documents.delete` with `force=true` so its
+  chunks go too). The old doc name is carried through `updated` via the
+  manifest's `previous_document_name` field; if the delete fails the new
+  upload still succeeds (a warning is logged) — stale chunks are then
+  retrievable until the next run retries the delete.
 - **Metadata.** Each uploaded doc carries `article_id`, `slug`, `source_url`,
   `content_hash`, `updated_at`.
 - **Store reuse.** The job creates a File Search store (display name

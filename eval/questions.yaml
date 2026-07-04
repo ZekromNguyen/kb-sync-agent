@@ -1,0 +1,38 @@
+# Evaluation set for the grounded assistant.
+#
+# Each entry is {question, expected_topics, expected_article_ids}. A question
+# is considered PASSING when its emitted `Article URL:` citations contain at
+# least one article whose Zendesk ID is in expected_article_ids AND the answer
+# text touches every keyword in expected_topics (case-insensitive substring).
+#
+# `expected_article_ids` are OptiSigns Help Center article IDs that the sample
+# question SHOULD be grounded in. IDs map to source URLs via
+# data/state/articles_manifest.json, so this evaluation works only after a run
+# has populated the manifest.
+#
+# Run: python -m src.evaluate      (or: python -m src.evaluate --raw)
+#
+# This is a tiny harness — 5 hand-picked canonical questions, not a scored
+# retrieval benchmark. It is meant for the take-home's "test the assistant"
+# requirement and should be run locally (it calls the Google API).
+
+questions:
+  - question: "How do I add a YouTube video?"
+    expected_topics: ["YouTube"]
+    expected_article_ids: [360051014713]
+
+  - question: "How do I use a YouTube playlist?"
+    expected_topics: ["playlist"]
+    expected_article_ids: [360059386254]
+
+  - question: "How do I show subtitles or closed captions on a YouTube video?"
+    expected_topics: ["caption"]
+    expected_article_ids: [360051014773]
+
+  - question: "How do I display a YouTube live stream?"
+    expected_topics: ["live"]
+    expected_article_ids: [1500002131621]
+
+  - question: "How do I get started with an OptiSigns free trial?"
+    expected_topics: ["trial"]
+    expected_article_ids: [37966066335891]

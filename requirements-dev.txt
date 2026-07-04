@@ -1,3 +1,4 @@
 # Dev-only test dependencies. The production Docker image installs only
 # requirements.txt, keeping the runtime lean.
 pytest>=7.4
+pyyaml>=6.0

@@ -28,6 +28,8 @@ logs/
 .github/
 .claude/
 tests/
+eval/
+scripts/
 requirements-dev.txt
 pyproject.toml
 AGENTS.md
