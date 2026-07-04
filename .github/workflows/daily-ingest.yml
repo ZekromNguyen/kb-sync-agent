@@ -56,7 +56,7 @@ jobs:
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GOOGLE_FILE_SEARCH_STORE_DISPLAY_NAME: optibot-support-kb
-          GEMINI_MODEL: gemini-2.5-flash
+          GEMINI_MODEL: gemini-3-flash-preview
           SUPPORT_BASE_URL: https://support.optisigns.com
           ARTICLE_LIMIT: "30"
           UPLOAD_ENABLED: "true"

@@ -56,7 +56,7 @@ class Config:
     # Persistent resource name (fileSearchStores/...). Optional on first run --
     # once a store is created, the job persists it in data/state/store.json.
     store_name: str | None = None
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3-flash-preview"
 
     support_base_url: str = "https://support.optisigns.com"
     article_limit: int = 30
@@ -97,7 +97,7 @@ def load_config(env_file: str = ".env") -> Config:
         )
         or "optibot-support-kb",
         store_name=(os.getenv("GOOGLE_FILE_SEARCH_STORE_NAME") or "").strip() or None,
-        gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash") or "gemini-2.5-flash",
+        gemini_model=os.getenv("GEMINI_MODEL", "gemini-3-flash-preview") or "gemini-3-flash-preview",
         support_base_url=(os.getenv("SUPPORT_BASE_URL", "https://support.optisigns.com") or "").rstrip("/"),
         article_limit=_as_int(os.getenv("ARTICLE_LIMIT"), 30),
         upload_enabled=_as_bool(os.getenv("UPLOAD_ENABLED"), True),
