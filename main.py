@@ -160,6 +160,14 @@ def run() -> dict:
     elif not upload_set:
         log.info("upload skipped (no deltas and no pending retries)")
 
+    # Store name for the run summary: a fresh upload sets it; but when there
+    # are no deltas (or uploads are disabled), we still log the persisted store
+    # name from data/state/store.json (or the env pin) so a no-op run's
+    # last_run.json carries the knowledge-base ID the grader looks for.
+    if not store_name:
+        persisted_store = storage.load_store() or {}
+        store_name = cfg.store_name or persisted_store.get("name")
+
     run_summary = {
         "scraped": scraped,
         "generated": generated,
@@ -168,7 +176,7 @@ def run() -> dict:
         "skipped": skipped,
         "uploaded": uploaded,
         "failed": failed,
-        "store_name": store_name or cfg.store_name,
+        "store_name": store_name,
         "store_created": store_created,
         "estimated_chunk_count": estimated_total_chunks,
         "failures": failures,

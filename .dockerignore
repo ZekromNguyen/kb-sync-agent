@@ -1,0 +1,34 @@
+# Keep the Docker image lean and secret-free. Everything below is excluded
+# from the build context, so `COPY . .` in the Dockerfile only ships source
+# code + requirements — never local secrets, virtualenvs, or run artifacts.
+
+# Secrets
+.env
+.env.*
+!.env.sample
+
+# VCS
+.git
+.gitignore
+
+# Local Python envs and caches
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.pytest_tmp/
+
+# Run outputs (regenerated inside the container each run)
+data/
+logs/
+
+# CI / tooling not needed at runtime
+.github/
+.claude/
+tests/
+requirements-dev.txt
+pyproject.toml
+AGENTS.md
+README.md
