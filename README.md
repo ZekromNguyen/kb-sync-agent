@@ -87,7 +87,7 @@ Latest verified local run:
   "added": 0,
   "updated": 0,
   "skipped": 30,
-  "uploaded": 4,
+  "uploaded": 0,
   "failed": 0,
   "estimated_chunk_count": 143
 }

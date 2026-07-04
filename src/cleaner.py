@@ -61,6 +61,9 @@ def body_to_markdown(body_html: str, base_url: str) -> str:
 
 def _normalize(text: str) -> str:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
+    # Zendesk content occasionally includes NBSP or mojibake from NBSP that
+    # renders as `Â ` in Markdown; normalize both to regular spaces.
+    text = text.replace("\u00a0", " ").replace("Â ", " ").replace("Â\u00a0", " ")
     # Collapse 3+ blank lines to 2 (markdown paragraph boundary).
     text = re.sub(r"\n{3,}", "\n\n", text)
     # Trim trailing whitespace on every line.
