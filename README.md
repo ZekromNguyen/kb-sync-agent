@@ -120,7 +120,7 @@ data/state/store.json
 
 Assistant sanity check for: `How do I add a YouTube video?`
 
-![Assistant answer screenshot](screenshots/youtube-answer.png)
+![Assistant answer screenshot](screenshots/playground-answer.png)
 
 ## Tests
 
